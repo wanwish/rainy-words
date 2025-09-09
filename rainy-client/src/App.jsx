@@ -93,7 +93,7 @@ function App() {
 
     // คำใหม่จาก server
     socket.on('new_word', ({ id, text /*, spawnAtMs*/ }) => {
-      const left = Math.random() * 80 + 10; // สุ่มแนวนอนเหมือนเดิม
+      const left = Math.random() * 70 + 10; // สุ่มแนวนอนเหมือนเดิม
       setFallingWords(prev => [...prev, { id, text, top: 0, left }]);
     });
 

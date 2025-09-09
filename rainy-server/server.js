@@ -1,3 +1,4 @@
+import {getShuffledWords} from "../rainy-client/src/wordList.js"
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -9,10 +10,25 @@ const GAME_DURATION_MS = 5 * 60 * 1000; // 5 minutes
 const WORD_SPAWN_MS = 3000;             // new word every 3s (tweak as you like)
 
 const WORDS = [
-  "Chulalongkorn","Engineering","Network","Wireless","NetCentric",
-  "Protocol","Socket","React","Server","Client","Packet","Latency",
-  "Buffer","Thread","Switch","Router","Firewall","Header","Payload"
-];
+    "apple","table","music","chair","light","train","story","dream","stone","paper",
+    "cat","dog","fish","bird","horse","tiger","lion","zebra","mouse","snake",
+    "green","blue","red","black","white","yellow","purple","orange","brown","pink",
+    "river","mountain","beach","island","forest","desert","ocean","bridge","road","tower",
+    "book","pencil","phone","clock","watch","radio","camera","mirror","glass","bottle",
+    "happy","sad","angry","tired","proud","brave","calm","shy","kind","lucky",
+    "run","jump","swim","fly","dance","sing","read","write","draw","paint",
+    "fast","slow","hot","cold","big","small","long","short","high","low",
+    "car","bus","truck","plane","ship","bike","train","metro","rocket","subway",
+    "king","queen","prince","princess","wizard","witch","knight","dragon","castle","crown",
+    "gold","silver","iron","steel","copper","diamond","ruby","sapphire","emerald","pearl",
+    "city","village","market","school","temple","church","palace","garden","bridge","park",
+    "music","song","piano","guitar","violin","drum","flute","trumpet","voice","band",
+    "summer","winter","spring","autumn","morning","noon","evening","night","today","tomorrow",
+    "game","puzzle","card","dice","ball","goal","score","team","match","player",
+    "computer","mouse","keyboard","screen","code","server","cloud","data","robot","app",
+    "star","moon","sun","planet","earth","mars","venus","jupiter","saturn","galaxy",
+    "food","bread","rice","noodle","meat","fish","fruit","cake","soup","salad"
+  ];
 
 const app = express();
 app.use(cors({ origin: CLIENT_ORIGIN }));
@@ -39,7 +55,7 @@ function broadcastPlayerList() {
 }
 
 function pickRandomWord() {
-  return WORDS[Math.floor(Math.random() * WORDS.length)];
+  return getShuffledWords()
 }
 
 function chooseFirstPlayer() {
