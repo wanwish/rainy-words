@@ -1,12 +1,12 @@
-import {getShuffledWords} from "../rainy-client/src/wordList.js"
-const express = require("express");
-const http = require("http");
-const { Server } = require("socket.io");
-const cors = require("cors");
+import {getShuffledWords} from "./wordList.js"
+import express from "express";
+import http from "http";
+import { Server } from "socket.io";
+import cors from "cors";
 
 const PORT = process.env.PORT || 3001;
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "*"; // set to your React URL in prod
-const GAME_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+const GAME_DURATION_MS = 10000; //5 * 60 * 1000; // 5 minutes
 const WORD_SPAWN_MS = 3000;             // new word every 3s (tweak as you like)
 
 const WORDS = [
