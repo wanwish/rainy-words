@@ -321,4 +321,4 @@ function App() {
 }
 
 export default App;
-//E pom
+//E nokok
