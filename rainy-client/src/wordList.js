@@ -23,13 +23,9 @@ const words = [
   ];
   
   // Shuffle function
-  export function getShuffledWords() {
-    return words
-      .map((word) => ({ word, sort: Math.random() }))
-      .sort((a, b) => a.sort - b.sort)
-      .map(({ word }) => word);
-  }
   
-  // ✅ add default export for compatibility (some code may do `import getShuffledWords from './wordList'`)
+  // Shuffle function 
+  export function getShuffledWords() { return words .map((word) => ({ word, sort: Math.random() })) .sort((a, b) => a.sort - b.sort) .map(({ word }) => word); } // ✅ add default export for compatibility (some code may do import getShuffledWords from './wordList') 
+  
   export default getShuffledWords;
   

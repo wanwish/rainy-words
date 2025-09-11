@@ -21,9 +21,11 @@ function App() {
   const [fallingWords, setFallingWords] = useState([]);
   const [typedWord, setTypedWord] = useState('');
   const [gameOver, setGameOver] = useState(false);
+  const [winnerName, setWinnerName] = useState('');
+  const [playerList, setPlayerList] = useState([]);
 
   // multiplayer refs/state
-  const socketRef = useRef(null);
+  const socketRef = useRef(null);  
   const mySocketIdRef = useRef(null);
   const [isMultiplayer, setIsMultiplayer] = useState(false);
 
@@ -67,9 +69,10 @@ function App() {
 
     // รายชื่อผู้เล่น (UI หลักยังคงเดิม แต่เราสามารถใช้ข้อมูลนี้ในอนาคตได้)
     socket.on('player_list', ({ players }) => {
-      const me = players.find(p => p.id === mySocketIdRef.current);
-      if (me) setScore(me.score);
-    });
+  setPlayerList(players); // store all players
+  const me = players.find(p => p.id === mySocketIdRef.current);
+  if (me) setScore(me.score);
+});
 
     // เริ่มเกมจาก server พร้อมกัน
     socket.on('game_start', ({ startAtMs }) => {
@@ -114,6 +117,7 @@ function App() {
 
     // จบเกม
     socket.on('game_end', ({ winnerName }) => {
+      setWinnerName(winnerName);
       setGameOver(true);
       // สามารถโชว์ชื่อผู้ชนะได้ถ้าต้องการ
       // ที่นี่คง UI เดิม: เพียงแสดง Game Over + score
@@ -227,21 +231,31 @@ function App() {
 
   // ------ Game over ------
   if (gameOver) {
-    return (
-      <div className="relative flex flex-col items-center justify-center w-screen h-screen bg-gray-900 text-white font-sans p-4 overflow-hidden">
-        <div className="bg-gray-800 p-8 rounded-xl shadow-lg w-full max-w-sm text-center">
-          <h1 className="text-4xl font-extrabold mb-4 text-red-400">Game Over</h1>
-          <p className="text-2xl mb-4 text-white">Final Score: <span className="text-green-400 font-bold">{score}</span></p>
-          <button
-            onClick={() => { setStarted(false); setGameOver(false); setIsMultiplayer(false); setSeconds(300); }}
-            className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition-colors duration-200"
-          >
-            Play Again
-          </button>
-        </div>
+  return (
+    <div className="relative flex flex-col items-center justify-center w-screen h-screen bg-gray-900 text-white font-sans p-4 overflow-hidden">
+      <div className="bg-gray-800 p-8 rounded-xl shadow-lg w-full max-w-sm text-center">
+        <h1 className="text-4xl font-extrabold mb-4 text-red-400">Game Over</h1>
+        <p className="text-2xl mb-2 text-white">
+          Final Score: <span className="text-green-400 font-bold">{score}</span>
+        </p>
+        <p className="text-xl mb-4 text-yellow-300">
+          Winner: {winnerName || 'N/A'}
+        </p>
+        <button
+          onClick={() => {
+            setStarted(false);
+            setGameOver(false);
+            setIsMultiplayer(false);
+            setSeconds(300);
+          }}
+          className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition-colors duration-200"
+        >
+          Play Again
+        </button>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   // ------ Game play ------
   return (
@@ -266,15 +280,22 @@ function App() {
       </div>
 
       <div className="relative z-10 flex flex-col items-center w-full max-w-xl">
-        <div className="flex justify-between w-full mb-4 p-4 rounded-lg bg-gray-800 bg-opacity-70 backdrop-blur-sm shadow-md">
-          <div className="text-center">
-            <h1 id="time_left" className="text-3xl font-bold text-gray-300">Time: {formatTime(seconds)}</h1>
-          </div>
-          <div className="text-center">
-            <h2 id="score_p1" className="text-3xl font-bold text-green-400">{score}</h2>
-            <h3 className="text-lg text-gray-400">Player: {username}</h3>
-          </div>
+  <div className="flex justify-between w-full mb-4 p-4 rounded-lg bg-gray-800 bg-opacity-70 backdrop-blur-sm shadow-md">
+    <div className="text-center">
+      <h1 id="time_left" className="text-3xl font-bold text-gray-300">
+        Time: {formatTime(seconds)}
+      </h1>
+    </div>
+    <div className="text-center space-y-1">
+      {playerList.map(p => (
+        <div key={p.id}>
+          <h2 className="text-2xl font-bold text-green-400">{p.score}</h2>
+          <h3 className="text-lg text-gray-400">Player: {p.name}</h3>
         </div>
+      ))}
+    </div>
+  </div>
+
 
         <div className="flex-grow w-full relative bg-gray-800 bg-opacity-50 rounded-lg shadow-inner mb-4 overflow-hidden" style={{ minHeight: '400px' }}>
           {fallingWords.map(word => (
