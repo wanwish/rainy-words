@@ -52,7 +52,7 @@ let game = {
 
 /* --------------------------------- Helpers ---------------------------------- */
 function broadcastPlayerList() {
-  const list = [...players.entries()].map(([id, p]) => ({ id, name: p.name, score: p.score }));
+  const list = [...players.entries()].map(([id, p]) => ({ id, name: p.name, score: p.score, gameMode: p.gameMode }));
   io.emit("player_list", { players: list, count: list.length });
 }
 
@@ -134,13 +134,16 @@ function endGame() {
 
 /* --------------------------------- Sockets ---------------------------------- */
 io.on("connection", (socket) => {
-  socket.on("join", ({ name }) => {
-    players.set(socket.id, { name: (name || "Player").slice(0, 20), score: 0 });
+  socket.on("join", ({ name, mode }) => { // 1. Destructure 'mode' from the payload
+    players.set(socket.id, { 
+        name: (name || "Player").slice(0, 20), 
+        score: 0,
+        gameMode: mode || 'normal' // 2. Store the gameMode
+    });
     socket.emit("welcome", { message: `Welcome, ${players.get(socket.id).name}.` });
     broadcastPlayerList();
     if (players.size === 2 && !game.running) startGame();
-  });
-
+});
   socket.on("typed", ({ wordId, text }) => {
     if (!game.running) return;
     const entry = game.activeWords.get(wordId);
@@ -208,11 +211,18 @@ app.get("/", (req, res) => {
 
       socket.on('player_list', ({players,count})=>{
         $('count').textContent = count;
-        $('players').textContent = JSON.stringify(players, null, 2);
+        const displayList = players.map(p => ({
+            id: p.id,
+            name: p.name,
+            score: p.score,
+            gameMode: p.gameMode // Include the new property
+        }));
+
+        $('players').textContent = JSON.stringify(displayList, null, 2);
       });
       socket.on('game_start', ()=>{ $('running').textContent = 'true'; });
       socket.on('game_end', ()=>{ $('running').textContent = 'false'; });
-
+      socket.on('reset', ()=>{ $('running').textContent = 'false'; });
       $('resetBtn').onclick = ()=> socket.emit('admin_reset');
     </script>
   `);

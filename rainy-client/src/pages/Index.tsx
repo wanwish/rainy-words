@@ -66,10 +66,12 @@ interface Player {
   id: string;
   name: string;
   score: number;
+  gameMode: string;
 }
 
 function Index() {
   const [username, setUsername] = useState("");
+  const [gameMode, setGameMode] = useState<'normal' | 'clash-royale'>('normal');
   const [gameState, setGameState] = useState<'start' | 'waiting' | 'countdown' | 'playing' | 'gameover'>('start');
   const [countdown, setCountdown] = useState(3);
   const [seconds, setSeconds] = useState(300);
@@ -78,6 +80,7 @@ function Index() {
   const [typedWord, setTypedWord] = useState('');
   const [winnerName, setWinnerName] = useState('');
   const [playerList, setPlayerList] = useState<Player[]>([]);
+  
 
   const socketRef = useRef<any>(null);
   const mySocketIdRef = useRef<string | null>(null);
@@ -191,7 +194,7 @@ function Index() {
   const onClickStart = () => {
     if (!username.trim()) return;
     const socket = ensureSocket();
-    socket.emit('join', { name: username.trim() });
+    socket.emit('join', { name: username.trim(), mode: gameMode });
     setGameState('waiting');
   };
 
@@ -204,6 +207,33 @@ function Index() {
           <h1 className="text-6xl font-extrabold mb-6 bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent animate-pulse">
             Rainy Words
           </h1>
+          
+          <div className="mb-6">
+            <p className="text-sm text-muted-foreground mb-3 font-semibold">SELECT GAME MODE</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setGameMode('normal')}
+                className={`flex-1 px-4 py-3 rounded-xl font-bold transition-all duration-200 border-2 ${
+                  gameMode === 'normal'
+                    ? 'bg-primary/20 border-primary text-primary shadow-[var(--glow-primary)]'
+                    : 'bg-muted/50 border-border text-muted-foreground hover:border-primary/50'
+                }`}
+              >
+                Normal
+              </button>
+              <button
+                onClick={() => setGameMode('clash-royale')}
+                className={`flex-1 px-4 py-3 rounded-xl font-bold transition-all duration-200 border-2 ${
+                  gameMode === 'clash-royale'
+                    ? 'bg-secondary/20 border-secondary text-secondary shadow-[var(--glow-secondary)]'
+                    : 'bg-muted/50 border-border text-muted-foreground hover:border-secondary/50'
+                }`}
+              >
+                Clash Royale
+              </button>
+            </div>
+          </div>
+
           <input
             className="w-full p-4 rounded-xl bg-input text-foreground placeholder-muted-foreground border border-border focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent mb-6 transition-all"
             placeholder="Enter your name"
