@@ -1,189 +1,42 @@
-/* ===== Rainy Words — polished dark theme ===== */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
-
-:root{
-  --bg: #0b1220;
-  --panel: #0f1a2d;
-  --panel-2:#111f35;
-  --text: #e6edf7;
-  --muted:#9fb0c8;
-  --accent:#3b82f6;
-  --accent-2:#60a5fa;
-  --success:#10b981;
-  --warn:#f59e0b;
-  --danger:#ef4444;
-  --border: rgba(255,255,255,.08);
-  --ring: rgba(59,130,246,.35);
-  --shadow: 0 18px 45px rgba(0,0,0,.55);
-  --radius: 14px;
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
 }
 
-*{ box-sizing: border-box }
-html,body,#root{ height:100% }
-
-body{
-  margin:0;
-  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  color: var(--text);
-  background: radial-gradient(1200px 680px at 50% -10%, #132542 0%, var(--bg) 45%, var(--bg) 100%) fixed;
-  letter-spacing:.2px;
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
 }
 
-/* soft “rain specks” grid */
-body::before{
-  content:""; position:fixed; inset:0; pointer-events:none;
-  background-image: radial-gradient(#9fb0c81f 1px, transparent 1.5px);
-  background-size: 3px 3px; opacity:.22;
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-/* subtle falling rain streaks (add <div class="rain"><i/></div> in your JSX) */
-.rain{
-  position: fixed; inset:0; pointer-events:none; overflow:hidden; z-index:0;
-}
-.rain i{
-  position:absolute; left:var(--x); top:-20px; width:1px; height:16px;
-  background: linear-gradient(180deg, transparent, #9fb0c84a 60%, transparent);
-  filter: blur(.2px);
-  animation: fall var(--d) linear infinite;
-  opacity: .85;
-}
-@keyframes fall { to { transform: translate3d(0,110vh,0)} }
-
-/* layout helpers */
-.page{
-  min-height:100%;
-  display:grid; place-items:center;
-  padding: 24px;
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
 }
 
-.card{
-  position:relative; z-index:1;
-  width: min(680px, 92vw);
-  background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 28px;
+.card {
+  padding: 2em;
 }
 
-/* ---------- Start Screen ---------- */
-.start-title{
-  font-size: 42px; font-weight: 800; margin: 0 0 18px;
-  letter-spacing:.3px; text-shadow: 0 2px 6px rgba(0,0,0,.65);
-  animation: titlePop .5s ease-out;
-}
-@keyframes titlePop{
-  from{ transform: translateY(6px) scale(.98); opacity: .0 }
-  to  { transform: translateY(0)   scale(1)   ; opacity: 1 }
-}
-
-.input{
-  width:100%; font-size: 16px; color: var(--text);
-  padding: 14px 16px; margin: 8px 0 14px;
-  background: #1a2438; border:1px solid var(--border); border-radius: 12px;
-  transition: box-shadow .2s ease, border-color .2s ease, background .2s ease;
-}
-.input::placeholder{ color: #9fb0c8a6 }
-.input:focus{
-  outline: none; border-color: var(--accent);
-  box-shadow: 0 0 0 4px var(--ring);
-  background: #1c2740;
-}
-
-.btn{
-  display:inline-flex; align-items:center; justify-content:center; gap:8px;
-  font-weight: 800; letter-spacing:.3px;
-  padding: 12px 16px; border-radius: 12px; border: 1px solid var(--border);
-  background: linear-gradient(180deg, #22345a, #1a2a49);
-  color:#eaf2ff; cursor:pointer;
-  transition: transform .06s ease, background .2s ease, box-shadow .2s ease;
-  box-shadow: 0 0 0 0 var(--ring), inset 0 -1px 0 rgba(255,255,255,.03);
-}
-.btn:hover{ background: linear-gradient(180deg, #274069, #1d2f50); }
-.btn:active{ transform: translateY(1px); }
-.btn:focus-visible{ box-shadow: 0 0 0 5px var(--ring); }
-
-/* ---------- Game Screen ---------- */
-.container{ width: min(960px, 92vw); margin: 0 auto; }
-
-.hud{
-  display:flex; align-items:center; justify-content:space-between; gap:16px;
-  background: rgba(15,25,45,.86);
-  border:1px solid var(--border); border-radius:12px; padding:14px 18px;
-  backdrop-filter: blur(6px);
-}
-
-.timer{
-  font-size: 26px; font-weight: 800; transition: color .35s ease, transform .15s ease;
-}
-.timer.warning{ color: var(--warn) }
-.timer.danger { color: var(--danger) }
-.timer.bump   { transform: scale(1.06) }
-
-.score{
-  font-weight: 800; color: var(--success);
-  text-shadow: 0 0 10px rgba(16,185,129,.25);
-  transition: transform .15s ease;
-}
-.score.bump{ transform: scale(1.15) }
-
-.player{ color: var(--muted); font-weight: 600; }
-
-.stage{
-  margin-top: 16px; height: clamp(260px, 45vh, 520px);
-  background: linear-gradient(180deg,#111b2d,#0c1627);
-  border:1px solid var(--border); border-radius: 12px;
-  box-shadow: inset 0 2px 10px rgba(0,0,0,.45);
-  position: relative; overflow: hidden;
-}
-
-/* falling words */
-.word{
-  position: absolute; top: -40px;
-  left: var(--x, 50%); transform: translateX(-50%);
-  padding: 8px 12px; border-radius: 10px;
-  background: rgba(255,255,255,.04);
-  border: 1px solid var(--border);
-  color: var(--text); font-weight:700;
-  animation: drop var(--t, 6s) linear forwards, flicker .9s ease-in-out infinite alternate;
-}
-@keyframes drop { to { top: calc(100% - 32px); } }
-@keyframes flicker { from { opacity:.95 } to { opacity:.8 } }
-
-.word.correct{
-  background: rgba(16,185,129,.15);
-  border-color: rgba(16,185,129,.4);
-  animation: pop .25s ease-out forwards;
-}
-.word.wrong{
-  background: rgba(239,68,68,.15);
-  border-color: rgba(239,68,68,.4);
-  animation: shake .25s ease;
-}
-@keyframes pop   { from{ transform: translateX(-50%) scale(.9)} to{ transform: translateX(-50%) scale(1)} }
-@keyframes shake { 25%{ transform: translateX(calc(-50% - 2px)) } 75%{ transform: translateX(calc(-50% + 2px)) } }
-
-.inputWrap{
-  margin-top: 16px; padding: 10px; border-radius: 12px;
-  background: rgba(15,25,45,.6); border: 1px solid var(--border);
-}
-.typebox{
-  width:100%; font-size: 18px; color: var(--text);
-  padding: 14px 16px; border-radius: 12px; border:1px solid var(--border);
-  background: #1a2438;
-  transition: box-shadow .2s ease, border-color .2s ease, background .2s ease;
-}
-.typebox::placeholder{ color:#9fb0c8a6 }
-.typebox:focus{
-  outline:none; border-color: var(--accent);
-  box-shadow: 0 0 0 4px var(--ring);
-  background: #1c2740;
-}
-
-/* utility */
-.muted{ color: var(--muted) }
-
-/* accessibility */
-@media (prefers-reduced-motion: reduce){
-  .word, .timer.bump, .score.bump { animation: none }
+.read-the-docs {
+  color: #888;
 }
