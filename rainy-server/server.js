@@ -1,4 +1,5 @@
 import { getShuffledWords } from "./wordList.js";
+import { getShuffledClashWords } from "./wordList.js";
 import express from "express";
 import http from "http";
 import { Server } from "socket.io";
@@ -8,6 +9,7 @@ const PORT = process.env.PORT || 3001;
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "*"; // set to your React URL in prod
 const GAME_DURATION_MS = 10000; //5 * 60 * 1000; // 5 minutes
 const WORD_SPAWN_MS = 3000; // new word every 3s (tweak as you like)
+var gameMode;
 
 const WORDS = [
   "apple","table","music","chair","light","train","story","dream","stone","paper",
@@ -57,7 +59,11 @@ function broadcastPlayerList() {
 }
 
 function pickRandomWord() {
-  return getShuffledWords();
+  if (gameMode == "normal"){
+  return getShuffledWords();}
+  else {
+    return getShuffledClashWords();
+  }
 }
 
 function chooseFirstPlayer() {
@@ -91,9 +97,20 @@ function resetGameState(keepPlayers = true) {
   }
 }
 
+const checkGameMode = ()=>{
+  const arr = Array.from(players.values())
+  if (arr.every(pp => pp.gameMode === arr[0].gameMode)){
+    gameMode = arr[0].gameMode;
+  }
+  return arr.every(pp => pp.gameMode === arr[0].gameMode)
+}
+
 /* ---------------------------- Game lifecycle API ---------------------------- */
 function startGame() {
-  if (game.running || players.size < 2) return; // require 2 players
+  if (game.running || (players.size < 2 )) return; // require 2 players
+  if (!checkGameMode()) {
+    io.emit("game_mode_mismatch", { message: "Please change game mode" });
+    return};
   game.running = true;
   game.startAtMs = Date.now() + 1500;
   game.endAtMs = game.startAtMs + GAME_DURATION_MS;

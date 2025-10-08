@@ -158,7 +158,15 @@ function Index() {
       setSeconds(300);
       setGameState('start');
     });
+
+    socket.on("game_mode_mismatch", ({ message }) => {
+      alert(message);                  // show popup
+  // OR update a variable / DOM element
+    // document.getElementById("status").textContent = message;
+  });
   };
+
+  
 
   const ensureSocket = () => {
     if (socketRef.current?.connected) return socketRef.current;
