@@ -1,8 +1,15 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { io } from 'socket.io-client';
+import goblinImg from '../assets/goblin.webp';
 
 // Raindrop background component
-const RainBackground = () => (
+interface RainBackgroundProps {
+  gameMode: 'normal' | 'clash-royale';
+}
+
+
+
+const RainBackground = ({ gameMode }: RainBackgroundProps) => (
   <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
     <style>{`
       @keyframes rainFall {
@@ -32,21 +39,52 @@ const RainBackground = () => (
         position: absolute;
       }
     `}</style>
-    {Array.from({ length: 80 }).map((_, i) => (
+
+    {Array.from({ length: 80 }).map((_, i) => {
+  const commonStyle = {
+    left: `${Math.random() * 100}%`,
+    top: '0%',
+    animationName: 'rainFall',
+    animationTimingFunction: 'linear',
+    animationIterationCount: 'infinite',
+    animationDuration: `${Math.random() * 2 + 2}s`,
+    animationDelay: `${Math.random() * 3}s`,
+    position: 'absolute' as const,
+  };
+
+  if (gameMode === 'normal') {
+    return (
       <div
         key={i}
         className="raindrop"
         style={{
-          left: `${Math.random() * 100}%`,
+          ...commonStyle,
           width: `${Math.random() * 3 + 1}px`,
           height: `${Math.random() * 15 + 8}px`,
-          animationDelay: `${Math.random() * 3}s`,
-          animationDuration: `${Math.random() * 2 + 2}s`,
         }}
       />
-    ))}
+    );
+  } else {
+    return (
+      <img
+        key={i}
+        src={goblinImg}
+        alt="character"
+        style={{
+          ...commonStyle,
+          width: 70,
+          height: 70,
+          borderRadius: '50%',
+          objectFit: 'cover',
+        }}
+      />
+    );
+  }
+})}
+
   </div>
 );
+
 
 // Helper: format time as MM:SS
 const formatTime = (secs: number) => {
@@ -162,7 +200,7 @@ function Index() {
     socket.on("game_mode_mismatch", ({ message }) => {
       alert(message);                  // show popup
   // OR update a variable / DOM element
-    // document.getElementById("status").textContent = message;
+     document.getElementById("status").textContent = message;
   });
   };
 
@@ -210,7 +248,7 @@ function Index() {
   if (gameState === 'start') {
     return (
       <div className="relative flex flex-col items-center justify-center w-screen h-screen bg-background text-foreground overflow-hidden">
-        <RainBackground />
+        <RainBackground gameMode={gameMode} />
         <div className="relative z-10 bg-card border border-border p-8 rounded-2xl shadow-2xl w-full max-w-md text-center backdrop-blur-sm">
           <h1 className="text-6xl font-extrabold mb-6 bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent animate-pulse">
             Rainy Words
@@ -265,7 +303,7 @@ function Index() {
   if (gameState === 'waiting') {
     return (
       <div className="relative flex flex-col items-center justify-center w-screen h-screen bg-background text-foreground overflow-hidden">
-        <RainBackground />
+        <RainBackground gameMode={gameMode} />
         <div className="relative z-10 bg-card border border-border p-8 rounded-2xl shadow-2xl w-full max-w-md text-center backdrop-blur-sm">
           <h1 className="text-4xl font-extrabold mb-6 text-primary">Waiting Room</h1>
           <div className="mb-6">
@@ -302,7 +340,7 @@ function Index() {
   if (gameState === 'countdown') {
     return (
       <div className="relative flex flex-col items-center justify-center w-screen h-screen bg-background text-foreground overflow-hidden">
-        <RainBackground />
+        <RainBackground gameMode={gameMode} />
         <div className="relative z-10 text-center">
           <h2 className="text-3xl font-bold mb-8 text-primary">Get Ready!</h2>
           <div className="text-[12rem] font-extrabold bg-gradient-to-br from-primary via-secondary to-primary bg-clip-text text-transparent animate-pulse">
@@ -318,7 +356,7 @@ function Index() {
   if (gameState === 'gameover') {
     return (
       <div className="relative flex flex-col items-center justify-center w-screen h-screen bg-background text-foreground overflow-hidden">
-        <RainBackground />
+        <RainBackground gameMode={gameMode} />
         <div className="relative z-10 bg-card border border-border p-8 rounded-2xl shadow-2xl w-full max-w-md text-center backdrop-blur-sm">
           <h1 className="text-5xl font-extrabold mb-6 text-destructive">Game Over</h1>
           <p className="text-3xl mb-4">
@@ -347,7 +385,7 @@ function Index() {
   // Playing
   return (
     <div className="relative flex flex-col items-center min-h-screen w-screen bg-background text-foreground overflow-hidden">
-      <RainBackground />
+      <RainBackground gameMode={gameMode} />
 
       <div className="relative z-10 flex flex-col items-center w-full max-w-4xl p-4 pt-8">
         <div className="flex justify-between items-start w-full mb-6 p-6 rounded-2xl bg-card/80 border border-border backdrop-blur-md shadow-xl">
