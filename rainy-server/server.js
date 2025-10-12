@@ -13,6 +13,10 @@ const MAX_DURATION_MIN = 5;
 const WORD_SPAWN_MS = 3000; // new word every 3s (tweak as you like)
 var gameMode;
 
+function rand5to10() {
+  return Math.floor(Math.random() * 6) + 5; // 5..10
+}
+
 const WORDS = [
   "apple","table","music","chair","light","train","story","dream","stone","paper",
   "cat","dog","fish","bird","horse","tiger","lion","zebra","mouse","snake",
@@ -44,6 +48,8 @@ const io = new Server(server, { cors: { origin: CLIENT_ORIGIN } });
 /* ---------------------------- In-memory game state --------------------------- */
 let players = new Map(); // socketId -> { name, score, gameMode, durationMin }
 let game = {
+  wordsSinceLastSpin: 0,
+  nextSpinGap: rand5to10(),
   running: false,
   startAtMs: null,
   endAtMs: null,
@@ -83,6 +89,8 @@ function stopGameTimers() {
 function resetGameState(keepPlayers = true) {
   stopGameTimers();
   game = {
+    wordsSinceLastSpin: 0,
+    nextSpinGap: rand5to10(),
     running: false,
     startAtMs: null,
     endAtMs: null,
@@ -154,11 +162,23 @@ function startGame() {
 
   game.wordTimer = setInterval(() => {
     if (!game.running) return;
+
     const wordId = game.nextWordId++;
     const text = pickRandomWord();
     const spawnAtMs = Date.now();
+
+    // --- SERVER-AUTHORITATIVE SPIN DECISION ---
+    game.wordsSinceLastSpin += 1;
+    let spin = false;
+    if (game.wordsSinceLastSpin >= game.nextSpinGap) {
+      spin = true;
+      game.wordsSinceLastSpin = 0;
+      game.nextSpinGap = rand5to10(); // next gap: 5–10 words
+    }
+    // ------------------------------------------
+
     game.activeWords.set(wordId, { text, spawnAtMs });
-    io.emit("new_word", { id: wordId, text, spawnAtMs });
+    io.emit("new_word", { id: wordId, text, spawnAtMs, spin }); // broadcast 'spin' flag
   }, WORD_SPAWN_MS);
 }
 
