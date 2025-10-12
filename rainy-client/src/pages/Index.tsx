@@ -112,14 +112,22 @@ function Index() {
   const [gameMode, setGameMode] = useState<'normal' | 'clash-royale'>('normal');
   const [gameState, setGameState] = useState<'start' | 'waiting' | 'countdown' | 'playing' | 'gameover'>('start');
   const [countdown, setCountdown] = useState(3);
-  const [seconds, setSeconds] = useState(300);
+  const [seconds, setSeconds] = useState(3 * 60);
   const [score, setScore] = useState(0);
   const [fallingWords, setFallingWords] = useState<FallingWord[]>([]);
   const [typedWord, setTypedWord] = useState('');
   const [winnerName, setWinnerName] = useState('');
   const [playerList, setPlayerList] = useState<Player[]>([]);
-  
+  const [durationMin, setDurationMin] = useState<number>(3);
+  const [mismatchReason, setMismatchReason] = useState<string | null>(null);
 
+  const goHome = () => {
+    setGameState('start');
+    setScore(0);
+    setMismatchReason(null);
+    setSeconds(300); // หรือใช้ durationMin * 60 ถ้ามี state durationMin
+  };
+  
   const socketRef = useRef<any>(null);
   const mySocketIdRef = useRef<string | null>(null);
 
@@ -193,15 +201,23 @@ function Index() {
     socket.on('reset', () => {
       setFallingWords([]);
       setScore(0);
-      setSeconds(300);
+      setSeconds(durationMin * 60);
       setGameState('start');
     });
 
     socket.on("game_mode_mismatch", ({ message }) => {
       alert(message);                  // show popup
   // OR update a variable / DOM element
-     document.getElementById("status").textContent = message;
-  });
+      document.getElementById("status").textContent = message;
+      setMismatchReason(message || "Game mode mismatch");
+    });
+
+    socket.on("duration_mismatch", ({ message }) => {
+      alert(message);
+      const el = document.getElementById("status");
+      if (el) el.textContent = message;
+      setMismatchReason(message || "Duration mismatch");
+    });
   };
 
   
@@ -240,7 +256,7 @@ function Index() {
   const onClickStart = () => {
     if (!username.trim()) return;
     const socket = ensureSocket();
-    socket.emit('join', { name: username.trim(), mode: gameMode });
+    socket.emit('join', { name: username.trim(), mode: gameMode, durationMin });
     setGameState('waiting');
   };
 
@@ -280,6 +296,33 @@ function Index() {
             </div>
           </div>
 
+          <div className="mb-6">
+            <p className="text-sm text-muted-foreground mb-3 font-semibold">DURATION (MINUTES)</p>
+            <div className="grid grid-cols-5 gap-2">
+              {[1,2,3,4,5].map((m) => (
+                <button
+                    key={m}
+                    type="button"
+                  onClick={() => {
+                    setDurationMin(m);
+                    setSeconds(m * 60); // sync seconds
+                    }}
+                  className={`px-3 py-2 rounded-xl font-bold border-2 transition-all ${
+                    durationMin === m
+                      ? 'bg-primary/20 border-primary text-primary shadow-[var(--glow-primary)]'
+                      : 'bg-muted/50 border-border text-muted-foreground hover:border-primary/50'
+                  }`}
+                >
+                    {m}m
+                </button>
+              ))}
+            </div>
+            <p id="status" className="mt-2 text-xs text-muted-foreground">
+              Every player have to select same time duration.
+            </p>
+          </div>
+
+
           <input
             className="w-full p-4 rounded-xl bg-input text-foreground placeholder-muted-foreground border border-border focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent mb-6 transition-all"
             placeholder="Enter your name"
@@ -300,14 +343,17 @@ function Index() {
   }
 
   // Waiting Room
-  if (gameState === 'waiting') {
+  if (gameState === 'waiting' ) {
     return (
       <div className="relative flex flex-col items-center justify-center w-screen h-screen bg-background text-foreground overflow-hidden">
         <RainBackground gameMode={gameMode} />
+  
         <div className="relative z-10 bg-card border border-border p-8 rounded-2xl shadow-2xl w-full max-w-md text-center backdrop-blur-sm">
           <h1 className="text-4xl font-extrabold mb-6 text-primary">Waiting Room</h1>
+  
           <div className="mb-6">
             <p className="text-lg text-muted-foreground mb-4">Players in lobby:</p>
+  
             <div className="space-y-2">
               {playerList.map((player) => (
                 <div
@@ -325,7 +371,21 @@ function Index() {
               ))}
             </div>
           </div>
-          <div className="flex items-center justify-center space-x-2 text-muted-foreground">
+  
+          {/* แจ้งเตือน + ปุ่ม Back เฉพาะตอน mismatch */}
+          {mismatchReason && (
+            <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 p-3 rounded-xl border bg-card shadow-lg">
+              <span className="text-sm">{mismatchReason}</span>
+              <button
+                onClick={goHome}
+                className="px-3 py-1.5 rounded-lg border bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/80"
+              >
+                Back to Home
+              </button>
+            </div>
+          )}
+  
+          <div className="flex items-center justify-center space-x-2 text-muted-foreground mt-6">
             <div className="w-2 h-2 bg-secondary rounded-full animate-pulse"></div>
             <div className="w-2 h-2 bg-secondary rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
             <div className="w-2 h-2 bg-secondary rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
@@ -371,7 +431,7 @@ function Index() {
             onClick={() => {
               setGameState('start');
               setPlayerList([]);
-              setSeconds(300);
+              setSeconds(durationMin * 60);
             }}
             className="w-full px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl shadow-lg transition-all duration-200 hover:shadow-[var(--glow-primary)]"
           >

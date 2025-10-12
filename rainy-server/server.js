@@ -7,7 +7,9 @@ import cors from "cors";
 
 const PORT = process.env.PORT || 3001;
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "*"; // set to your React URL in prod
-const GAME_DURATION_MS = 10000; //5 * 60 * 1000; // 5 minutes
+const DEFAULT_GAME_DURATION_MIN = 3;           // fallback ถ้า client ไม่ส่งมา
+const MIN_DURATION_MIN = 1;
+const MAX_DURATION_MIN = 5;
 const WORD_SPAWN_MS = 3000; // new word every 3s (tweak as you like)
 var gameMode;
 
@@ -40,7 +42,7 @@ const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: CLIENT_ORIGIN } });
 
 /* ---------------------------- In-memory game state --------------------------- */
-let players = new Map(); // socketId -> { name, score }
+let players = new Map(); // socketId -> { name, score, gameMode, durationMin }
 let game = {
   running: false,
   startAtMs: null,
@@ -105,20 +107,42 @@ const checkGameMode = ()=>{
   return arr.every(pp => pp.gameMode === arr[0].gameMode)
 }
 
+function clampDuration(mins) {
+  const n = Number(mins) || DEFAULT_GAME_DURATION_MIN;
+  return Math.max(MIN_DURATION_MIN, Math.min(MAX_DURATION_MIN, n));
+  }
+  
+  function getUniformDurationOrNull() {
+  const arr = Array.from(players.values());
+  if (arr.length === 0) return null;
+  const first = arr[0].durationMin;
+  if (arr.every(p => p.durationMin === first)) return first;
+  return null;
+  }
+
 /* ---------------------------- Game lifecycle API ---------------------------- */
 function startGame() {
   if (game.running || (players.size < 2 )) return; // require 2 players
   if (!checkGameMode()) {
     io.emit("game_mode_mismatch", { message: "Please change game mode" });
     return};
+  
+  const uniformDuration = getUniformDurationOrNull();
+  if (!uniformDuration) {
+    io.emit("duration_mismatch", { message: "Please select the same duration (1–5 min)." });
+    return;
+  }
+
   game.running = true;
   game.startAtMs = Date.now() + 1500;
-  game.endAtMs = game.startAtMs + GAME_DURATION_MS;
+  game.endAtMs = game.startAtMs + uniformDuration * 60 * 1000;
   game.firstPlayerId = chooseFirstPlayer();
 
   io.emit("game_start", {
     startAtMs: game.startAtMs,
     firstPlayerId: game.firstPlayerId,
+    durationMin: uniformDuration,
+    endAtMs: game.endAtMs,
   });
 
   game.tickTimer = setInterval(() => {
@@ -151,11 +175,12 @@ function endGame() {
 
 /* --------------------------------- Sockets ---------------------------------- */
 io.on("connection", (socket) => {
-  socket.on("join", ({ name, mode }) => { // 1. Destructure 'mode' from the payload
+  socket.on("join", ({ name, mode, durationMin }) => {
     players.set(socket.id, { 
         name: (name || "Player").slice(0, 20), 
         score: 0,
-        gameMode: mode || 'normal' // 2. Store the gameMode
+        gameMode: mode || 'normal', // 2. Store the gameMode
+        durationMin: clampDuration(durationMin)
     });
     socket.emit("welcome", { message: `Welcome, ${players.get(socket.id).name}.` });
     broadcastPlayerList();
