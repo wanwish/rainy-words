@@ -5,6 +5,17 @@ import goblinImg from '../assets/goblin.webp';
 // 🎵 audio (must exist in src/assets)
 import clashTheme from '../assets/Clash Royale Sudden Death Song EXTENDED 1 hour.mp3';
 import megaknightSfx from '../assets/Mega Knight Evolution new Voice lines_1.mp3';
+import evoWizardSfx from '../assets/clash-royale-evo-wizard_o6x7iWd.mp3';
+import kingSfx from '../assets/clash-royale-king.mp3';
+import logSfx from '../assets/clash-royale-log.mp3';
+import graveYardSfx from '../assets/graveyard-clash-royale.mp3';
+import knightSfx from '../assets/knight-scream-clash-royale.mp3';
+import mimimiSfx from '../assets/mimimi-clash-royale.mp3';
+import cardSfx from '../assets/Voicy_Clash Royale Card Sound Ear Rape.mp3';
+import hogRiderSfx from '../assets/Voicy_hog rider.mp3';
+import miniPekkaSfx from '../assets/Voicy_Mini pekka voicelines.mp3';
+
+
 
 // Raindrop background component
 interface RainBackgroundProps {
@@ -263,19 +274,26 @@ export default function Index() {
     bg.volume = 0.35;
     bg.preload = 'auto';
   
-    const sfx = new Audio(megaknightSfx);
-    sfx.volume = 0.9;
-    sfx.preload = 'auto';
+    
   
     bgAudioRef.current = bg;
-    sfxAudioRef.current = sfx;
-  
     return () => {
-      try { bg.pause(); sfx.pause(); } catch {}
+      try { bg.pause();  } catch {}
       bgAudioRef.current = null;
-      sfxAudioRef.current = null;
+    
     };
   }, []);
+
+const sfxSounds = [megaknightSfx, evoWizardSfx, kingSfx, logSfx, graveYardSfx, knightSfx, mimimiSfx, cardSfx, hogRiderSfx, miniPekkaSfx]; // add more audio files
+
+function playRandomSfx() {
+  const randomIndex = Math.floor(Math.random() * sfxSounds.length);
+  const sfx = new Audio(sfxSounds[randomIndex]);
+  sfx.volume = 0.9;
+  sfx.preload = 'auto';
+  sfxAudioRef.current = sfx;
+  sfx.play();
+}
 
   // Input typing handler
   const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -286,6 +304,7 @@ export default function Index() {
     // Try match the earliest word by exact text
     const match = fallingWords.find((w) => w.text === value.trim());
     if (match) {
+      playRandomSfx()
       setTypedWord("");
       socketRef.current?.emit("typed", { wordId: match.id, text: match.text });
     }
