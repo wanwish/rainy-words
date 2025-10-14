@@ -11,7 +11,7 @@ const DEFAULT_GAME_DURATION_MIN = 3;           // fallback ถ้า client ไ�
 const MIN_DURATION_MIN = 1;
 const MAX_DURATION_MIN = 5;
 const WORD_SPAWN_MS = 3000; // new word every 3s (tweak as you like)
-var gameMode;
+//var gameMode;
 
 function rand5to10() {
   return Math.floor(Math.random() * 6) + 5; // 5..10
@@ -43,22 +43,29 @@ app.use(cors({ origin: CLIENT_ORIGIN }));
 app.use(express.static("public")); // <-- serve static CSS
 
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: CLIENT_ORIGIN } });
+const io = new Server(server, {
+  cors: {
+    origin: process.env.CLIENT_ORIGIN || "*",
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
+});
+const rooms = new Map();
 
 /* ---------------------------- In-memory game state --------------------------- */
-let players = new Map(); // socketId -> { name, score, gameMode, durationMin }
-let game = {
-  wordsSinceLastSpin: 0,
-  nextSpinGap: rand5to10(),
-  running: false,
-  startAtMs: null,
-  endAtMs: null,
-  firstPlayerId: null,
-  wordTimer: null,
-  tickTimer: null,
-  nextWordId: 1,
-  activeWords: new Map(), // wordId -> { text, spawnAtMs }
-};
+// let players = new Map(); // socketId -> { name, score, gameMode, durationMin }
+// let game = {
+//   wordsSinceLastSpin: 0,
+//   nextSpinGap: rand5to10(),
+//   running: false,
+//   startAtMs: null,
+//   endAtMs: null,
+//   firstPlayerId: null,
+//   wordTimer: null,
+//   tickTimer: null,
+//   nextWordId: 1,
+//   activeWords: new Map(), // wordId -> { text, spawnAtMs }
+// };
 
 // === Freeze feature: track one-time usage per socket id ===
 const usedFreeze = new Set();
@@ -69,12 +76,8 @@ function broadcastPlayerList() {
   io.emit("player_list", { players: list, count: list.length });
 }
 
-function pickRandomWord() {
-  if (gameMode == "normal"){
-  return getShuffledWords();}
-  else {
-    return getShuffledClashWords();
-  }
+function pickRandomWordByMode(mode) {
+  return mode === "normal" ? getShuffledWords() : getShuffledClashWords();
 }
 
 function chooseFirstPlayer() {
@@ -130,6 +133,23 @@ function clampDuration(mins) {
   if (arr.every(p => p.durationMin === first)) return first;
   return null;
   }
+
+function makeRoomId() {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  return Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+}
+  
+function broadcastRooms() {
+  const summary = Array.from(rooms.values()).map(r => ({
+    id: r.id,
+    mode: r.mode,
+    durationMin: r.durationMin,
+    requiredPlayers: r.requiredPlayers,
+    current: r.players.size,
+    running: r.running,
+  }));
+  io.emit("room_list", summary);
+}
 
 /* ---------------------------- Game lifecycle API ---------------------------- */
 function startGame() {
@@ -198,39 +218,126 @@ function endGame() {
 
 /* --------------------------------- Sockets ---------------------------------- */
 io.on("connection", (socket) => {
-  socket.on("join", ({ name, mode, durationMin }) => {
-    players.set(socket.id, { 
-        name: (name || "Player").slice(0, 20), 
-        score: 0,
-        gameMode: mode || 'normal', // 2. Store the gameMode
-        durationMin: clampDuration(durationMin)
-    });
-    socket.emit("welcome", { message: `Welcome, ${players.get(socket.id).name}.` });
-    broadcastPlayerList();
-    if (players.size === 2 && !game.running) startGame();
+  
+  // console.log('A user connected:', socket.id);
+
+// send current rooms right away so admin/client UI updates
+socket.emit(
+  'room_list',
+  Array.from(rooms.values()).map(r => ({
+    id: r.id,
+    mode: r.mode,
+    durationMin: r.durationMin,
+    requiredPlayers: r.requiredPlayers,
+    current: r.players.size,
+    running: r.running,
+  }))
+);
+  // Player creates a room
+  socket.on("create_room", ({ name, mode, durationMin, playersWanted }) => {
+  const id = makeRoomId();
+  const room = {
+    id,
+    mode,
+    durationMin: clampDuration(durationMin),
+    requiredPlayers: Math.min(Math.max(playersWanted || 2, 1), 4),
+    players: new Map(),                 // socketId -> { name, score }
+    running: false,
+    startAtMs: null,
+    endAtMs: null,
+    wordTimer: null,
+    tickTimer: null,
+    nextWordId: 1,
+    activeWords: new Map(),             // wordId -> { text, spawnAtMs }
+    wordsSinceLastSpin: 0,
+    nextSpinGap: rand5to10(),
+  };
+  rooms.set(id, room);
+
+  // Add creator to the room
+  room.players.set(socket.id, { name, score: 0 });
+  socket.join(id);
+  socket.data.roomId = id;
+  socket.emit("room_joined", { roomId: id });
+  broadcastRooms();
+  
+  io.to(id).emit("player_list", {
+    players: Array.from(room.players.entries()).map(([pid, p]) => ({
+      id: pid, name: p.name, score: p.score,
+    })),
+    count: room.players.size,
+  });
+
+  // If single-player, start immediately
+  if (room.requiredPlayers === 1) {
+    startGameInRoom(room.id);
+  }
+  });
+
+// Player joins an existing room
+socket.on("join_room", ({ roomId, name }) => {
+  const room = rooms.get(roomId);
+  if (!room || room.running) {
+    return socket.emit("error_msg", { message: "Room not available" });
+  }
+
+  // Add player to room
+  room.players.set(socket.id, { name, score: 0 });
+  socket.join(roomId);
+  socket.data.roomId = roomId;
+  socket.emit("room_joined", { roomId });
+  broadcastRooms();
+
+  io.to(roomId).emit("player_list", {
+    players: Array.from(room.players.entries()).map(([pid, p]) => ({
+      id: pid,
+      name: p.name,
+      score: p.score,
+    })),
+    count: room.players.size,
+  });
+
+  if (room.players.size === room.requiredPlayers) {
+    startGameInRoom(roomId);
+  }
+});
+  
+socket.on("typed", ({ wordId, text }) => {
+  const roomId = socket.data.roomId;
+  const room = rooms.get(roomId);
+  if (!room || !room.running) return;
+
+  const entry = room.activeWords.get(wordId);
+  if (!entry) return;
+
+  if (String(text).toLowerCase() === entry.text.toLowerCase()) {
+    room.activeWords.delete(wordId);
+
+    const player = room.players.get(socket.id);
+    if (player) {
+      player.score += 1;
+
+      io.to(roomId).emit("word_result", {
+        wordId,
+        correct: true,
+        scorerId: socket.id,
+        newScore: player.score,
+      });
+
+      io.to(roomId).emit("player_list", {
+        players: Array.from(room.players.entries()).map(([id, p]) => ({
+          id,
+          name: p.name,
+          score: p.score,
+        })),
+        count: room.players.size,
+      });
+    }
+  } else {
+    socket.emit("word_result", { wordId, correct: false });
+  }
 });
 
-  socket.on("typed", ({ wordId, text }) => {
-    if (!game.running) return;
-    const entry = game.activeWords.get(wordId);
-    if (!entry) return;
-    if (String(text) === entry.text) {
-      game.activeWords.delete(wordId);
-      const p = players.get(socket.id);
-      if (p) {
-        p.score += 1;
-        io.emit("word_result", {
-          wordId,
-          correct: true,
-          scorerId: socket.id,
-          newScore: p.score,
-        });
-        broadcastPlayerList();
-      }
-    } else {
-      socket.emit("word_result", { wordId, correct: false });
-    }
-  });
 
   // === Freeze feature events (added) ===
   socket.on("freeze:request", ({ byName }) => {
@@ -241,7 +348,8 @@ io.on("connection", (socket) => {
     usedFreeze.add(socket.id);
 
     const DURATION_MS = 10000; // 10 seconds
-    socket.broadcast.emit("freeze:apply", {
+    const roomId = socket.data.roomId;
+    socket.to(roomId).emit("freeze:apply", {
       duration: DURATION_MS,
       byName: byName || "Someone",
     });
@@ -249,24 +357,103 @@ io.on("connection", (socket) => {
     socket.emit("freeze:ack", { used: true });
   });
 
-  socket.on("admin_reset", () => {
-    resetGameState(true);
-    io.emit("reset", {});
-    broadcastPlayerList();
-    if (players.size === 2) startGame();
+  socket.on("admin_reset_room", () => {
+    const roomId = socket.data.roomId;
+    const room = rooms.get(roomId);
+    if (!room) return;
+  
+    if (room.wordTimer) clearInterval(room.wordTimer);
+    if (room.tickTimer) clearInterval(room.tickTimer);
+    room.running = false;
+    room.startAtMs = null;
+    room.endAtMs = null;
+    room.nextWordId = 1;
+    room.activeWords.clear();
+    room.wordsSinceLastSpin = 0;
+    room.nextSpinGap = rand5to10();
+    room.players.forEach(p => p.score = 0);
+  
+    io.to(roomId).emit("reset", {});
+    broadcastRooms();
   });
 
   socket.on("disconnect", () => {
-    players.delete(socket.id);
-    usedFreeze.delete(socket.id); // ensure their freeze token is cleared on disconnect
-    broadcastPlayerList();
-    if (players.size < 2 && game.running) {
-      endGame();
+    for (const room of rooms.values()) {
+      if (room.players.delete(socket.id)) {
+        if (room.players.size === 0) rooms.delete(room.id);
+        broadcastRooms();
+        break;
+      }
     }
   });
 });
 
 /* ------------------------------ Server Admin UI ----------------------------- */
+
+// the new game starter function
+function startGameInRoom(roomId) {
+  const room = rooms.get(roomId);
+  if (!room || room.running) return;
+  room.running = true;
+
+  room.startAtMs = Date.now() + 1500;
+  room.endAtMs   = room.startAtMs + room.durationMin * 60 * 1000;
+
+  io.to(roomId).emit("game_start", {
+    roomId,
+    startAtMs: room.startAtMs,
+    durationMin: room.durationMin,
+    endAtMs: room.endAtMs,
+    players: Array.from(room.players.values()).map(p => p.name),
+  });
+
+  // per-room timer
+  room.tickTimer = setInterval(() => {
+    const remainingMs = Math.max(0, room.endAtMs - Date.now());
+    io.to(roomId).emit("timer", { remainingMs });
+    if (remainingMs <= 0) endGameInRoom(roomId);
+  }, 1000);
+
+  // per-room word spawner with spin flag
+  room.wordTimer = setInterval(() => {
+    if (!room.running) return;
+
+    const wordId = room.nextWordId++;
+    const text = pickRandomWordByMode(room.mode);
+    const spawnAtMs = Date.now();
+
+    room.wordsSinceLastSpin += 1;
+    let spin = false;
+    if (room.wordsSinceLastSpin >= room.nextSpinGap) {
+      spin = true;
+      room.wordsSinceLastSpin = 0;
+      room.nextSpinGap = rand5to10();
+    }
+
+    room.activeWords.set(wordId, { text, spawnAtMs });
+    io.to(roomId).emit("new_word", { id: wordId, text, spawnAtMs, spin });
+  }, WORD_SPAWN_MS);
+}
+
+function endGameInRoom(roomId) {
+  const room = rooms.get(roomId);
+  if (!room) return;
+
+  if (room.wordTimer) clearInterval(room.wordTimer);
+  if (room.tickTimer) clearInterval(room.tickTimer);
+  room.wordTimer = null;
+  room.tickTimer = null;
+  room.running = false;
+
+  const scores = Array.from(room.players.entries())
+    .map(([id, p]) => ({ id, name: p.name, score: p.score }))
+    .sort((a,b) => b.score - a.score);
+
+  const winner = scores[0] || { name: "N/A", score: 0 };
+  io.to(roomId).emit("game_end", { winnerName: winner.name, scores });
+  broadcastRooms();
+}
+
 app.get("/", (req, res) => {
   res.send(`
     <!doctype html>
@@ -289,27 +476,30 @@ app.get("/", (req, res) => {
     </div>
 
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-    <script>
-      const socket = io({ transports:['websocket'] });
-      const $ = (id)=>document.getElementById(id);
+<script>
+  const socket = io({ transports: ['websocket'] });
+  const $ = (id) => document.getElementById(id);
 
-      socket.on('player_list', ({players,count})=>{
-        $('count').textContent = count;
-        const displayList = players.map(p => ({
-            id: p.id,
-            name: p.name,
-            score: p.score,
-            gameMode: p.gameMode // Include the new property
-        }));
+  // Optional: see every event in console
+  socket.onAny((event, ...args) => console.debug('[socket]', event, args));
 
-        $('players').textContent = JSON.stringify(displayList, null, 2);
-      });
-      socket.on('game_start', ()=>{ $('running').textContent = 'true'; });
-      socket.on('game_end', ()=>{ $('running').textContent = 'false'; });
-      socket.on('reset', ()=>{ $('running').textContent = 'false'; });
-      $('resetBtn').onclick = ()=> socket.emit('admin_reset');
-    </script>
-  `);
+  // Show all rooms and compute totals
+  socket.on('room_list', (rooms) => {
+    const total = rooms.reduce((sum, r) => sum + (r.current || 0), 0);
+    $('count').textContent = total;
+    $('running').textContent = rooms.some(r => r.running) ? 'true' : 'false';
+    $('players').textContent = JSON.stringify(rooms, null, 2);
+  });
+
+  // (Keep old hooks if you still emit them per-room; otherwise safe to ignore)
+  socket.on('game_start', () => { $('running').textContent = 'true'; });
+  socket.on('game_end',   () => { $('running').textContent = 'false'; });
+  socket.on('reset',      () => { $('running').textContent = 'false'; });
+
+  // Reset current socket's room (room-scoped reset)
+  $('resetBtn').onclick = () => socket.emit('admin_reset_room');
+</script>
+`);
 });
 
 /* --------------------------------- Start ------------------------------------ */
