@@ -288,6 +288,27 @@ function Index() {
       if (el) el.textContent = message;
       setMismatchReason(message || "Duration mismatch");
     });
+
+    // === Freeze feature listeners (added) ===
+    socket.on('freeze:apply', ({ duration, byName }: { duration: number; byName?: string }) => {
+      const ms = duration ?? 10000;
+      setIsFrozen(true);
+      setFreezeEndsAt(Date.now() + ms);
+
+      if (freezeTimerRef.current) clearTimeout(freezeTimerRef.current);
+      freezeTimerRef.current = setTimeout(() => {
+        setIsFrozen(false);
+        setFreezeEndsAt(0);
+      }, ms);
+    });
+
+    socket.on('freeze:ack', ({ used }: { used: boolean }) => {
+      if (used) setFreezeUsed(true);
+    });
+
+    socket.on('freeze:denied', () => {
+      setFreezeUsed(true);
+    });
   };
 
   const ensureSocket = () => {
@@ -308,8 +329,19 @@ function Index() {
     }
   }, [gameState, countdown]);
 
+  // === Freeze feature state (added) ===
+  const [isFrozen, setIsFrozen] = useState(false);
+  const [freezeEndsAt, setFreezeEndsAt] = useState(0);
+  const [freezeUsed, setFreezeUsed] = useState(false);
+  const freezeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // ✍️ Typing
   const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Block input while frozen
+    if (isFrozen) {
+      e.preventDefault();
+      return;
+    }
     const value = e.target.value.toLowerCase();
     setTypedWord(value);
     const hit = fallingWords.find(w => String(w.text).toLowerCase() === value);
@@ -333,6 +365,12 @@ function Index() {
     if (gameMode === 'clash-royale' && soundOn) {
       bgAudioRef.current?.play().catch(() => {});
     }
+  };
+
+  // === Freeze button click (added) ===
+  const onFreezeClick = () => {
+    if (freezeUsed || !socketRef.current) return;
+    socketRef.current.emit('freeze:request', { byName: username || 'Player' });
   };
 
   // Enforce silence in Normal; allow bg in Clash while playing
@@ -571,6 +609,18 @@ function Index() {
             </div>
           )}
 
+          {/* === Freeze power-up button (added) === */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onFreezeClick}
+              disabled={freezeUsed || gameState !== 'playing'}
+              className="px-3 py-2 rounded-lg border bg-primary/20 border-primary text-primary hover:bg-primary/30 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              title={freezeUsed ? 'You already used Freeze' : 'Freeze all opponents for 10s'}
+            >
+              ❄ Freeze (1×)
+            </button>
+          </div>
+
           <div className="text-center space-y-3">
             {playerList.map(p => (
               <div key={p.id}
@@ -611,6 +661,21 @@ function Index() {
           />
         </div>
       </div>
+
+      {/* === Frozen overlay (added) === */}
+      {isFrozen && (
+        <div className="fixed inset-0 z-[9999] grid place-items-center pointer-events-none">
+          <div className="absolute inset-0 bg-[rgba(0,20,40,0.55)] backdrop-blur-sm" />
+          <div className="relative px-8 py-6 rounded-2xl border border-[rgba(150,200,255,0.25)] bg-[linear-gradient(180deg,rgba(40,70,110,.6),rgba(20,40,70,.7))] shadow-[0_10px_30px_rgba(0,0,0,.6),_inset_0_0_80px_rgba(150,220,255,.15)] text-center">
+            <div className="text-5xl font-extrabold tracking-widest text-[rgb(233,246,255)] drop-shadow-[0_0_12px_rgba(100,220,255,.35)]">
+              FROZEN
+            </div>
+            <div className="mt-2 text-lg font-bold text-[rgb(207,232,255)]">
+              {Math.max(0, Math.ceil((freezeEndsAt - Date.now()) / 1000))}s
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

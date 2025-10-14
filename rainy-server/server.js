@@ -60,6 +60,9 @@ let game = {
   activeWords: new Map(), // wordId -> { text, spawnAtMs }
 };
 
+// === Freeze feature: track one-time usage per socket id ===
+const usedFreeze = new Set();
+
 /* --------------------------------- Helpers ---------------------------------- */
 function broadcastPlayerList() {
   const list = [...players.entries()].map(([id, p]) => ({ id, name: p.name, score: p.score, gameMode: p.gameMode }));
@@ -206,6 +209,7 @@ io.on("connection", (socket) => {
     broadcastPlayerList();
     if (players.size === 2 && !game.running) startGame();
 });
+
   socket.on("typed", ({ wordId, text }) => {
     if (!game.running) return;
     const entry = game.activeWords.get(wordId);
@@ -228,6 +232,23 @@ io.on("connection", (socket) => {
     }
   });
 
+  // === Freeze feature events (added) ===
+  socket.on("freeze:request", ({ byName }) => {
+    if (usedFreeze.has(socket.id)) {
+      socket.emit("freeze:denied", { reason: "already-used" });
+      return;
+    }
+    usedFreeze.add(socket.id);
+
+    const DURATION_MS = 10000; // 10 seconds
+    socket.broadcast.emit("freeze:apply", {
+      duration: DURATION_MS,
+      byName: byName || "Someone",
+    });
+
+    socket.emit("freeze:ack", { used: true });
+  });
+
   socket.on("admin_reset", () => {
     resetGameState(true);
     io.emit("reset", {});
@@ -237,6 +258,7 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     players.delete(socket.id);
+    usedFreeze.delete(socket.id); // ensure their freeze token is cleared on disconnect
     broadcastPlayerList();
     if (players.size < 2 && game.running) {
       endGame();
