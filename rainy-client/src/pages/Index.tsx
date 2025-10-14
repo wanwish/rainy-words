@@ -14,7 +14,7 @@ import mimimiSfx from '../assets/mimimi-clash-royale.mp3';
 import cardSfx from '../assets/Voicy_Clash Royale Card Sound Ear Rape.mp3';
 import hogRiderSfx from '../assets/Voicy_hog rider.mp3';
 import miniPekkaSfx from '../assets/Voicy_Mini pekka voicelines.mp3';
-
+import freezeSfx from '../assets/Clash royale _ freeze spell sound effect..mp3'
 
 
 // Raindrop background component
@@ -295,6 +295,13 @@ function playRandomSfx() {
   sfx.play();
 }
 
+const playFreeze = ()=>{
+  const sfx = new Audio(freezeSfx)
+  sfx.preload = 'auto';
+  sfxAudioRef.current = sfx;
+  sfx.play();
+}
+
   // Input typing handler
   const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -313,6 +320,7 @@ function playRandomSfx() {
   // Freeze button
   const onFreezeClick = () => {
     if (freezeUsed || gameState !== "playing") return;
+    playFreeze()
     socketRef.current?.emit("freeze:request", { byName: username || "Player" });
   };
 
