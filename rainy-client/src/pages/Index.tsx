@@ -194,7 +194,7 @@ export default function Index() {
         if (soundOn) {
           try { bgAudioRef.current?.play(); } catch {}
         }
-      }, 1500);
+      }, 3000);
     });
 
     socket.on("timer", ({ remainingMs }: { remainingMs: number }) => {
@@ -283,6 +283,13 @@ export default function Index() {
     
     };
   }, []);
+
+  useEffect(() => {
+    if (gameState === "countdown" && countdown > 0 ){
+      const timer = setTimeout(() => setCountdown(countdown -1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [countdown, gameState]);
 
 const sfxSounds = [megaknightSfx, evoWizardSfx, kingSfx, logSfx, graveYardSfx, knightSfx, mimimiSfx, cardSfx, hogRiderSfx, miniPekkaSfx]; // add more audio files
 
