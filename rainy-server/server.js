@@ -200,8 +200,9 @@ function startGame() {
     }
     // ------------------------------------------
 
-    game.activeWords.set(wordId, { text, spawnAtMs });
-    io.emit("new_word", { id: wordId, text, spawnAtMs, spin }); // broadcast 'spin' flag
+    game.activeWords.set(wordId, { text, spawnAtMs, spin }); // 👈 store spin flag too
+    io.emit("new_word", { id: wordId, text, spawnAtMs, spin });
+
   }, WORD_SPAWN_MS);
 }
 
@@ -315,7 +316,9 @@ socket.on("typed", ({ wordId, text }) => {
 
     const player = room.players.get(socket.id);
     if (player) {
-      player.score += 1;
+      // Give 2 points if the word was spinning, otherwise 1
+      player.score += entry.spin ? 2 : 1;
+
 
       io.to(roomId).emit("word_result", {
         wordId,
@@ -430,7 +433,7 @@ function startGameInRoom(roomId) {
       room.nextSpinGap = rand5to10();
     }
 
-    room.activeWords.set(wordId, { text, spawnAtMs });
+    room.activeWords.set(wordId, { text, spawnAtMs, spin });
     io.to(roomId).emit("new_word", { id: wordId, text, spawnAtMs, spin });
   }, WORD_SPAWN_MS);
 }
