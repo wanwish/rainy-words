@@ -126,7 +126,7 @@ function clampDuration(mins) {
   return Math.max(MIN_DURATION_MIN, Math.min(MAX_DURATION_MIN, n));
   }
   
-  function getUniformDurationOrNull() {
+function getUniformDurationOrNull() {
   const arr = Array.from(players.values());
   if (arr.length === 0) return null;
   const first = arr[0].durationMin;
@@ -136,7 +136,13 @@ function clampDuration(mins) {
 
 function makeRoomId() {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  return Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  let id;
+  do {
+    id = Array.from({ length: 6 }, () =>
+      chars[Math.floor(Math.random() * chars.length)]
+    ).join("");
+  } while (rooms.has(id));       // ห้ามชนกับห้องที่มีอยู่
+  return id;
 }
   
 function broadcastRooms() {
@@ -277,19 +283,20 @@ socket.emit(
 
 // Player joins an existing room
 socket.on("join_room", ({ roomId, name }) => {
-  const room = rooms.get(roomId);
+  const rid = String(roomId).trim().toUpperCase();
+  const room = rooms.get(rid);
   if (!room || room.running) {
     return socket.emit("error_msg", { message: "Room not available" });
   }
 
   // Add player to room
   room.players.set(socket.id, { name, score: 0 });
-  socket.join(roomId);
-  socket.data.roomId = roomId;
-  socket.emit("room_joined", { roomId });
+  socket.join(rid);
+  socket.data.roomId = rid;
+  socket.emit("room_joined", { roomId: rid, mode: room.mode });
   broadcastRooms();
 
-  io.to(roomId).emit("player_list", {
+  io.to(rid).emit("player_list", {
     players: Array.from(room.players.entries()).map(([pid, p]) => ({
       id: pid,
       name: p.name,
@@ -299,8 +306,42 @@ socket.on("join_room", ({ roomId, name }) => {
   });
 
   if (room.players.size === room.requiredPlayers) {
-    startGameInRoom(roomId);
+    startGameInRoom(rid);
   }
+});
+
+socket.on("leave_room", ({ roomId } = {}) => {
+  // ถ้า client ไม่ส่งมาก็อ่านจาก session
+  const rid = String(roomId || socket.data.roomId || "").trim();
+  if (!rid) return;
+
+  const room = rooms.get(rid);
+  if (!room) return;
+
+  // เอาผู้เล่นออกจากห้อง
+  room.players.delete(socket.id);
+  socket.leave(rid);
+  delete socket.data.roomId;
+
+  // ถ้าไม่เหลือผู้เล่นในห้อง -> เคลียร์ timer และลบห้อง
+  if (room.players.size === 0) {
+    if (room.wordTimer) clearInterval(room.wordTimer);
+    if (room.tickTimer) clearInterval(room.tickTimer);
+    room.wordTimer = null;
+    room.tickTimer = null;
+    rooms.delete(rid);
+  } else {
+    // ยังมีคนอยู่ อัปเดตรายชื่อผู้เล่นในห้อง
+    io.to(rid).emit("player_list", {
+      players: Array.from(room.players.entries()).map(([pid, p]) => ({
+        id: pid, name: p.name, score: p.score,
+      })),
+      count: room.players.size,
+    });
+  }
+
+  // อัปเดตรายการห้องให้ทุกคน
+  broadcastRooms();
 });
   
 socket.on("typed", ({ wordId, text }) => {

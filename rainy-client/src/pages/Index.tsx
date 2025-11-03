@@ -119,6 +119,13 @@ export default function Index() {
 
   const [roomList, setRoomList] = useState<RoomSummary[]>([]);
   const [roomId, setRoomId] = useState<string | null>(null);
+  const effectiveMode: "normal" | "clash-royale" = useMemo(() => {
+  // ถ้ายังไม่ได้อยู่ห้อง roomId จะเป็น null
+    const room = roomId ? roomList.find((x) => x.id === roomId) : undefined;
+    const m = room?.mode;
+    return m === "clash-royale" || m === "normal" ? m : gameMode;
+  }, [roomId, roomList, gameMode]);
+
   const [winnerName, setWinnerName] = useState('');
   const [playerList, setPlayerList] = useState<PlayerRow[]>([]);
 
@@ -170,8 +177,9 @@ export default function Index() {
       setRoomList(list || []);
     });
 
-    socket.on("room_joined", ({ roomId }: { roomId: string }) => {
+    socket.on("room_joined", ({ roomId, mode }: { roomId: string; mode?: "normal" | "clash-royale" }) => {
       setRoomId(roomId);
+      if (mode === "normal" || mode === "clash-royale") setGameMode(mode);
       setGameState("waiting");
     });
 
@@ -345,6 +353,11 @@ const playFreeze = ()=>{
 
   // Back to home
   const goHome = () => {
+    // แจ้งเซิร์ฟเวอร์ให้ออกจากห้อง และลบห้องถ้าไม่มีใครอยู่
+    if (roomId) {
+      ensureSocket();
+      socketRef.current?.emit("leave_room", { roomId });
+    }
     setGameState("start");
     setPlayerList([]);
     setFallingWords([]);
@@ -359,7 +372,7 @@ const playFreeze = ()=>{
   if (gameState === "start") {
     return (
       <div className="relative flex flex-col items-center justify-center w-screen h-screen bg-background text-foreground overflow-hidden">
-        <RainBackground gameMode={gameMode} />
+        <RainBackground key={effectiveMode} gameMode={effectiveMode} />
         <div className="relative z-10 bg-card border border-border p-8 rounded-2xl shadow-2xl w-full max-w-md text-center backdrop-blur-sm">
           <h1 className="text-5xl font-extrabold mb-6 text-primary drop-shadow-[0_0_10px_hsl(var(--primary)/0.5)]">
             Rainy Words
@@ -472,7 +485,11 @@ const playFreeze = ()=>{
                       const name =
                         (username && username.trim()) || `Player-${Math.floor(Math.random() * 1000)}`;
                   
-                      console.debug("joining room", r.id, "as", name); // debug
+                      console.debug("joining room", r.id, "as", name);
+                      // ให้ UI ของ client ปรับโหมดตามห้องทันที (รอ server confirm อีกทีใน room_joined)
+                      if (r.mode === "normal" || r.mode === "clash-royale") {
+                        setGameMode(r.mode as "normal" | "clash-royale");
+                      }
                       socketRef.current?.emit("join_room", { roomId: r.id, name });
                     }}
                     className="text-sm px-3 py-1 border rounded hover:bg-muted"
@@ -494,7 +511,7 @@ const playFreeze = ()=>{
     const currentRoom = roomList.find((r) => r.id === roomId);
     return (
       <div className="relative flex flex-col items-center justify-center w-screen h-screen bg-background text-foreground overflow-hidden">
-        <RainBackground gameMode={gameMode} />
+        <RainBackground key={effectiveMode} gameMode={effectiveMode} />
         <div className="relative z-10 bg-card border border-border p-8 rounded-2xl shadow-2xl w-full max-w-md text-center backdrop-blur-sm">
           <h1 className="text-4xl font-extrabold mb-6 text-primary">Waiting Room</h1>
           <div className="mb-3 text-sm text-muted-foreground">
@@ -547,7 +564,7 @@ const playFreeze = ()=>{
   if (gameState === "countdown") {
     return (
       <div className="relative flex flex-col items-center justify-center w-screen h-screen bg-background text-foreground overflow-hidden">
-        <RainBackground gameMode={gameMode} />
+        <RainBackground key={effectiveMode} gameMode={effectiveMode} />
         <div className="relative z-10 bg-card border border-border p-8 rounded-2xl shadow-2xl w-full max-w-md text-center backdrop-blur-sm">
           <h1 className="text-6xl font-extrabold mb-6 bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent animate-pulse">
             Rainy Words
@@ -563,7 +580,7 @@ const playFreeze = ()=>{
   if (gameState === 'gameover') {
     return (
       <div className="relative flex flex-col items-center justify-center w-screen h-screen bg-background text-foreground overflow-hidden">
-        <RainBackground gameMode={gameMode} />
+        <RainBackground key={effectiveMode} gameMode={effectiveMode} />
         <div className="relative z-10 bg-card border border-border p-8 rounded-2xl shadow-2xl w-full max-w-md text-center backdrop-blur-sm">
           <h1 className="text-5xl font-extrabold mb-6 text-destructive">Game Over</h1>
           <p className="text-3xl mb-4">Your Score: <span className="text-primary font-bold">{score}</span></p>
@@ -586,7 +603,7 @@ const playFreeze = ()=>{
   // Playing Screen
   return (
     <div className="relative flex flex-col items-center min-h-screen w-screen bg-background text-foreground overflow-hidden">
-      <RainBackground gameMode={gameMode} />
+      <RainBackground key={effectiveMode} gameMode={effectiveMode} />
 
       <div className="relative z-10 flex flex-col items-center w-full max-w-4xl p-4 pt-8">
         <div className="flex justify-between items-start w-full mb-6 p-6 rounded-2xl bg-card/80 border border-border backdrop-blur-md shadow-xl">
