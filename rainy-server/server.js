@@ -106,9 +106,10 @@ function resetGameState(keepPlayers = true) {
     nextWordId: 1,
     activeWords: new Map(),
   };
-  if (keepPlayers) {
-    players.forEach((p) => (p.score = 0));
-  } else {
+   // ✅ Always reset scores, even if keeping players
+  players.forEach((p) => (p.score = 0));
+
+  if (!keepPlayers) {
     players.clear();
   }
 }
@@ -215,6 +216,9 @@ function startGame() {
 function endGame() {
   stopGameTimers();
   game.running = false;
+
+  // ✅ Reset all scores for next round
+  players.forEach((p) => (p.score = 0));
 
   const scoreList = [...players.entries()].map(([id, p]) => ({ id, name: p.name, score: p.score }));
   scoreList.sort((a, b) => b.score - a.score);

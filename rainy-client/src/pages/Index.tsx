@@ -586,11 +586,7 @@ const playFreeze = ()=>{
           <p className="text-3xl mb-4">Your Score: <span className="text-primary font-bold">{score}</span></p>
           {winnerName && <p className="text-2xl mb-6 text-secondary">Winner: <span className="font-bold">{winnerName}</span></p>}
           <button
-            onClick={() => {
-              setGameState('start');
-              setPlayerList([]);
-              setSeconds(durationMin * 60);
-            }}
+            onClick={goHome}
             className="w-full px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl shadow-lg transition-all"
           >
             Play Again
