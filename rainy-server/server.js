@@ -405,25 +405,37 @@ socket.on("typed", ({ wordId, text }) => {
     socket.emit("freeze:ack", { used: true });
   });
 
-  socket.on("admin_reset_room", () => {
-    const roomId = socket.data.roomId;
-    const room = rooms.get(roomId);
-    if (!room) return;
+  socket.on("admin_reset_all", () => {
+    // Loop over all rooms
+    for (const [roomId, room] of rooms.entries()) {
+      // stop timers
+      if (room.wordTimer) clearInterval(room.wordTimer);
+      if (room.tickTimer) clearInterval(room.tickTimer);
+      room.wordTimer = null;
+      room.tickTimer = null;
+      room.running = false;
   
-    if (room.wordTimer) clearInterval(room.wordTimer);
-    if (room.tickTimer) clearInterval(room.tickTimer);
-    room.running = false;
-    room.startAtMs = null;
-    room.endAtMs = null;
-    room.nextWordId = 1;
-    room.activeWords.clear();
-    room.wordsSinceLastSpin = 0;
-    room.nextSpinGap = rand5to10();
-    room.players.forEach(p => p.score = 0);
+      // notify clients in each room
+      io.to(roomId).emit("force_leave", { reason: "admin_reset" });
   
-    io.to(roomId).emit("reset", {});
+      // make each player leave
+      const clientIds = io.sockets.adapter.rooms.get(roomId);
+      if (clientIds) {
+        for (const sid of clientIds) {
+          const s = io.sockets.sockets.get(sid);
+          if (s) {
+            s.leave(roomId);
+            s.data.roomId = null;
+          }
+        }
+      }
+      rooms.delete(roomId);
+    }
+  
+    // update everyone
     broadcastRooms();
   });
+  
 
   socket.on("disconnect", () => {
     for (const room of rooms.values()) {
@@ -545,7 +557,7 @@ app.get("/", (req, res) => {
   socket.on('reset',      () => { $('running').textContent = 'false'; });
 
   // Reset current socket's room (room-scoped reset)
-  $('resetBtn').onclick = () => socket.emit('admin_reset_room');
+  $('resetBtn').onclick = () => socket.emit('admin_reset_all');
 </script>
 `);
 });

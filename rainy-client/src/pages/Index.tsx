@@ -249,6 +249,22 @@ export default function Index() {
     });
 
     socket.on("freeze:ack", () => setFreezeUsed(true));
+    
+    socket.on("force_leave", () => {
+      try { bgAudioRef.current?.pause(); } catch {}
+      try { sfxAudioRef.current?.pause(); } catch {}
+    
+      setGameState("start");
+      setPlayerList([]);
+      setFallingWords([]);
+      setTypedWord("");
+      setScore(0);
+      setRoomId(null);
+      setFreezeUsed(false);
+      setIsFrozen(false);
+      if (bgAudioRef.current) bgAudioRef.current.currentTime = 0;
+    });
+    
   };
 
   // Mount socket once
