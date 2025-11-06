@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import goblinImg from '../assets/goblin.webp';
+import HowToPlay from "../components/HowToPlay";
 
 // 🎵 audio (must exist in src/assets)
 import clashTheme from '../assets/Clash Royale Sudden Death Song EXTENDED 1 hour.mp3';
@@ -462,6 +463,10 @@ const playFreeze = ()=>{
           >
             Create Room
           </button>
+
+          <div className="mt-3 flex justify-center">
+            <HowToPlay />
+          </div>
 
           {/* Open Rooms */}
           <div className="mt-6 w-full">
