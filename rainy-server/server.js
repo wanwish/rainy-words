@@ -66,7 +66,7 @@ const rooms = new Map();
 //   nextWordId: 1,
 //   activeWords: new Map(), // wordId -> { text, spawnAtMs }
 // };
-
+////
 // === Freeze feature: track one-time usage per socket id ===
 const usedFreeze = new Set();
 
