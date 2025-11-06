@@ -121,7 +121,7 @@ All colors MUST be HSL.
 .freeze-btn {
   appearance: none;
   border: 1px solid hsl(var(--primary) / 0.35);
-  padding: 10px 14px;
+  padding: 9px 13px;
   border-radius: 10px;
   font-weight: 800;
   cursor: pointer;
