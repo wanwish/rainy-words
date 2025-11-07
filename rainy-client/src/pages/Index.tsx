@@ -249,22 +249,6 @@ export default function Index() {
     });
 
     socket.on("freeze:ack", () => setFreezeUsed(true));
-    
-    socket.on("force_leave", () => {
-      try { bgAudioRef.current?.pause(); } catch {}
-      try { sfxAudioRef.current?.pause(); } catch {}
-    
-      setGameState("start");
-      setPlayerList([]);
-      setFallingWords([]);
-      setTypedWord("");
-      setScore(0);
-      setRoomId(null);
-      setFreezeUsed(false);
-      setIsFrozen(false);
-      if (bgAudioRef.current) bgAudioRef.current.currentTime = 0;
-    });
-    
   };
 
   // Mount socket once
@@ -621,7 +605,7 @@ const playFreeze = ()=>{
   return (
     <div className="relative flex flex-col items-center min-h-screen w-screen bg-background text-foreground overflow-hidden">
       <RainBackground key={effectiveMode} gameMode={effectiveMode} />
-
+      
       <div className="relative z-10 flex flex-col items-center w-full max-w-4xl p-4 pt-8">
         <div className="flex justify-between items-start w-full mb-6 p-6 rounded-2xl bg-card/80 border border-border backdrop-blur-md shadow-xl">
           <div className="text-center">
@@ -708,6 +692,7 @@ const playFreeze = ()=>{
             autoFocus
             value={typedWord}
             onChange={handleTyping}
+            onPaste={(e) => e.preventDefault()}
             className="w-full p-5 rounded-xl bg-input text-foreground text-2xl text-center placeholder-muted-foreground border border-border focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
             placeholder="Type the words here..."
           />
